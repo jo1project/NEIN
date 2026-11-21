@@ -1,0 +1,57 @@
+name: Build NEIN IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: 'Direct download URL of the original LINE IPA (leave empty to use ipa_path in the repo)'
+        required: false
+        default: ''
+      ipa_path:
+        description: 'IPA path inside the repo (used when ipa_url is empty)'
+        required: false
+        default: 'jp.naver.line_26.17.0.ipa'
+      flags:
+        description: 'Flags passed to tools/main.py'
+        required: false
+        default: '--keychain-compat --collapse-friends-on-launch'
+      output_name:
+        description: 'Output file name'
+        required: false
+        default: 'NEIN-26.17.0.ipa'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch IPA
+        env:
+          IPA_URL: ${{ inputs.ipa_url }}
+          IPA_PATH: ${{ inputs.ipa_path }}
+        run: |
+          if [ -n "$IPA_URL" ]; then
+            curl -L --fail -o input.ipa "$IPA_URL"
+          else
+            cp "$IPA_PATH" input.ipa
+          fi
+          ls -l input.ipa
+
+      - name: Build
+        env:
+          FLAGS: ${{ inputs.flags }}
+          OUT: ${{ inputs.output_name }}
+        run: |
+          mkdir -p output
+          python tools/main.py $FLAGS input.ipa "output/$OUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.output_name }}
+          path: output/*.ipa
+          retention-days: 3
